@@ -31,10 +31,12 @@ public class iBeaconExampleScript : MonoBehaviour
 
 			if (error.Contains ("Bluetooth LE Not Enabled"))
 				BluetoothLEHardwareInterface.BluetoothEnable (true);
-		});
-	}
+		}, true);   // for beacon scanning we need to ask for location services on Android.
+                    // IMPORTANT: REMOVE android:usesPermissionFlags="neverForLocation" AND android:maxSdkVersion="30"
+                    //            from AndroidManifest.xml file
+    }
 
-	public float Distance (float signalPower, float rssi, float nValue)
+    public float Distance (float signalPower, float rssi, float nValue)
 	{
 		return (float)Math.Pow (10, ((signalPower - rssi) / (10 * nValue)));
 	}

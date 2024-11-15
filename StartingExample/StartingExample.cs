@@ -20,7 +20,9 @@ public class StartingExample : MonoBehaviour
         None,
         Scan,
         ScanRSSI,
+        ReadRSSI,
         Connect,
+        RequestMTU,
         Subscribe,
         Unsubscribe,
         Disconnect,
@@ -35,7 +37,6 @@ public class StartingExample : MonoBehaviour
     private bool _rssiOnly = false;
     private int _rssi = 0;
 
-    public GameObject DeinitializeButton;
     public Text StatusText;
     public Text ButtonPositionText;
 
@@ -46,20 +47,6 @@ public class StartingExample : MonoBehaviour
             BluetoothLEHardwareInterface.Log(value);
             StatusText.text = value;
         }
-    }
-
-    // NOTE: The button that triggers this is for when you are running this code in the macOS
-    // Unity Editor and have the experimental bluetooth support turned on. This is because I
-    // how found it crashes less often when you deinitialize first. You must still use caution
-    // and save your work often as it could still have issues.
-    // MacOS editor support is experimental. I am working on trying to make it work better in
-    // the editor.
-    public void OnDeinitializeButton()
-    {
-        BluetoothLEHardwareInterface.DeInitialize(() =>
-        {
-            StatusMessage = "Deinitialize";
-        });
     }
 
     void Reset()
@@ -97,11 +84,6 @@ public class StartingExample : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        if (DeinitializeButton != null)
-        {
-            DeinitializeButton.SetActive(Application.isEditor);
-        }
-
         StartProcess();
     }
 
@@ -133,7 +115,6 @@ public class StartingExample : MonoBehaviour
 
                         BluetoothLEHardwareInterface.ScanForPeripheralsWithServices(null, (address, name) =>
                         {
-
                             // if your device does not advertise the rssi and manufacturer specific data
                             // then you must use this callback because the next callback only gets called
                             // if you have manufacturer specific data
@@ -143,8 +124,6 @@ public class StartingExample : MonoBehaviour
                                 if (name.Contains(DeviceName))
                                 {
                                     StatusMessage = "Found " + name;
-
-                                    BluetoothLEHardwareInterface.StopScan();
 
                                     // found a device with the name we want
                                     // this example does not deal with finding more than one
@@ -168,8 +147,6 @@ public class StartingExample : MonoBehaviour
                                 }
                                 else
                                 {
-                                    BluetoothLEHardwareInterface.StopScan();
-
                                     // found a device with the name we want
                                     // this example does not deal with finding more than one
                                     _deviceAddress = address;
@@ -184,6 +161,16 @@ public class StartingExample : MonoBehaviour
                         break;
 
                     case States.ScanRSSI:
+                        break;
+
+                    case States.ReadRSSI:
+                        StatusMessage = $"Call Read RSSI";
+                        BluetoothLEHardwareInterface.ReadRSSI(_deviceAddress, (address, rssi) =>
+                        {
+                            StatusMessage = $"Read RSSI: {rssi}";
+                        });
+
+                        SetState(States.ReadRSSI, 2f);
                         break;
 
                     case States.Connect:
@@ -202,6 +189,8 @@ public class StartingExample : MonoBehaviour
                         {
                             StatusMessage = "Connected...";
 
+                            BluetoothLEHardwareInterface.StopScan();
+
                             if (IsEqual(serviceUUID, ServiceUUID))
                             {
                                 StatusMessage = "Found Service UUID";
@@ -216,9 +205,27 @@ public class StartingExample : MonoBehaviour
                                 if (_foundButtonUUID && _foundLedUUID)
                                 {
                                     _connected = true;
-                                    SetState(States.Subscribe, 2f);
+                                    SetState(States.RequestMTU, 2f);
                                 }
                             }
+                        }, (disconnectDeviceAddress) =>
+                        {
+                            // if this is called, the device identitied with the passed in parameter
+                            // just disconnected.
+                            // You can start scanning again by setting the state to Scan like so:
+                            _connected = false;
+                            SetState(States.Scan, 0.1f);
+                        });
+                        break;
+
+                    case States.RequestMTU:
+                        StatusMessage = "Requesting MTU";
+
+                        BluetoothLEHardwareInterface.RequestMtu(_deviceAddress, 185, (address, newMTU) =>
+                        {
+                            StatusMessage = "MTU set to " + newMTU.ToString();
+
+                            SetState(States.Subscribe, 0.1f);
                         });
                         break;
 
@@ -236,6 +243,8 @@ public class StartingExample : MonoBehaviour
                                 ProcessButton(bytes);
                             });
 
+                            SetState(States.ReadRSSI, 1f);
+
                         }, (address, characteristicUUID, bytes) =>
                         {
                             if (_state != States.None)
@@ -248,7 +257,7 @@ public class StartingExample : MonoBehaviour
                                 // would then send data to trigger this.
                                 StatusMessage = "Waiting for user action (2)...";
 
-                                _state = States.None;
+                                SetState(States.ReadRSSI, 1f);
                             }
 
                             // we received some data from the device

@@ -24,6 +24,7 @@ public class ArduinoHM10Test : MonoBehaviour
 		None,
 		Scan,
 		Connect,
+		RequestMTU,
 		Subscribe,
 		Unsubscribe,
 		Disconnect,
@@ -165,7 +166,7 @@ public class ArduinoHM10Test : MonoBehaviour
 							if (IsEqual (characteristicUUID, Characteristic))
 							{
 								_connected = true;
-								SetState (States.Subscribe, 2f);
+								SetState (States.RequestMTU, 2f);
 
 								HM10_Status.text = "Connected to HM10";
 							}
@@ -176,7 +177,18 @@ public class ArduinoHM10Test : MonoBehaviour
 					});
 					break;
 
-				case States.Subscribe:
+					case States.RequestMTU:
+						HM10_Status.text = "Requesting MTU";
+
+						BluetoothLEHardwareInterface.RequestMtu(_hm10, 185, (address, newMTU) =>
+						{
+							HM10_Status.text = "MTU set to " + newMTU.ToString();
+
+							SetState(States.Subscribe, 0.1f);
+						});
+						break;
+
+					case States.Subscribe:
 					HM10_Status.text = "Subscribing to HM10";
 
 					BluetoothLEHardwareInterface.SubscribeCharacteristicWithDeviceAddress (_hm10, ServiceUUID, Characteristic, null, (address, characteristicUUID, bytes) => {

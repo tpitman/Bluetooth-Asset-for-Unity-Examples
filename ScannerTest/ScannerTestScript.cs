@@ -12,11 +12,6 @@ public class ScannerTestScript : MonoBehaviour
 	private bool _startScan = true;
 	private Dictionary<string, ScannedItemScript> _scannedItems;
 
-	public void OnButton()
-	{
-		BluetoothLEHardwareInterface.DeInitialize (() => Debug.Log("Deinitialized"));
-	}
-
 	public void OnStopScanning()
 	{
 		BluetoothLEHardwareInterface.Log ("**************** stopping");
